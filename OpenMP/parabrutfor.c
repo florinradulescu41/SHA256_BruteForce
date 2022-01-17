@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <omp.h>
-#include <openssl/sha.h>
+#include "sha256.h"
 
 #define PASSLEN 5
 #define SHA_STRING_LEN 64
@@ -62,28 +62,44 @@ int main(int argc, char **argv)
       byte md[100] = { 0 };
       byte* str	= StringHashToByteArray(passes[i]);
       for (password[1] = 97; password[1] < 123; password[1]++) {
-        byte *hash = SHA256(password, 2, md);
+        byte hash[SHA256_BLOCK_SIZE];
+        SHA256_CTX ctx;
+        sha256_init(&ctx);
+        sha256_update(&ctx, password, 2);
+        sha256_final(&ctx, hash);
         if (matches(str, hash)) {
           strncpy(decrypted[i], password, 2);
           continue;
         }
         else {
           for (password[2] = 97; password[2] < 123; password[2]++) {
-            byte *hash = SHA256(password, 3, md);
+            byte hash[SHA256_BLOCK_SIZE];
+						SHA256_CTX ctx;
+						sha256_init(&ctx);
+						sha256_update(&ctx, password, 3);
+						sha256_final(&ctx, hash);
             if (matches(str, hash)) {
               strncpy(decrypted[i], password, 3);
               continue;
             }
             else {
               for (password[3] = 97; password[3] < 123; password[3]++) {
-                byte *hash = SHA256(password, 4, md);
+                byte hash[SHA256_BLOCK_SIZE];
+                SHA256_CTX ctx;
+                sha256_init(&ctx);
+                sha256_update(&ctx, password, 4);
+                sha256_final(&ctx, hash);
                 if (matches(str, hash)) {
                   strncpy(decrypted[i], password, 4);
                   continue;
                 }
                 else {
                   for (password[4] = 97; password[4] < 123; password[4]++) {
-                    byte *hash = SHA256(password, 5, md);
+                    byte hash[SHA256_BLOCK_SIZE];
+                    SHA256_CTX ctx;
+                    sha256_init(&ctx);
+                    sha256_update(&ctx, password, 5);
+                    sha256_final(&ctx, hash);
                     if (matches(str, hash)) {
                       strncpy(decrypted[i], password, 5);
                       continue;

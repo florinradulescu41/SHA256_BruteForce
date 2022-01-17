@@ -132,10 +132,43 @@ rulare locală până la 128 de threaduri
 
 ![Rezultate](Results.png)
 
-### Încărcarea medie a procesoarelor (locale, vom reveni cu rezultate pe fep)
+### Încărcarea medie a procesoarelor (local)
 
 ![Rezultate](CPU_usage.png)
 
-### Speed-up (locale, vom reveni cu rezultate pe fep)
+### Speed-up (local)
 
 ![Rezultate](Speedup.png)
+
+### Update TODO #3 (Update Major)
+
+- Am reușit să separăm tot procesul de conversie a stringurilor în criptări de tip SHA256
+- Biblioteca libcrypto.so nu mai este necesară și procesul de criptare poate fi urmărit mai bine
+- Au fost adăugate 4 funcții care participă la criptare
+- Din păcate aceste 4 funcții NU sunt paralelizabile
+- Deși o mare parte din timp încă se pierde în procesul de criptare, acesta este la rândul lui împărțit între thread-uri, încât aceste funcții sunt apelate din cadrul thread-urilor, ceea ce oferă un speed-up cel puțin decent
+- Au fost efectuate rulări pe ibm-dp și am venit cu rezultate noi atât la partea de profilare, cât și cea de rulare
+
+### Profilare actualizată fără libcrypto
+
+Partea cea mai rea a excluderii libcrypto și a implementării manuale a funcțiilor de criptare SHA256 pare să fie creșterea timpului petrecut de către threaduri în cadrul acestor funcții. Cel mai probabil, biblioteca inițială conținea diverse optimizări pe care implementarea noastră nu le conține. Cu toate acestea, este oricum interesant de urmărit modul în care aceste funcții ocupă în proporții relativ asemănătore nucleele în rulare comparativ cu prima implementare.
+
+![Profilare Funcții](new_functions.png)
+
+De asemenea, se poate remarca un Call Tree aproape identic cu implementarea inițială, în afara unor funcții de pregătire a apelărilor din libcrypto, care acum nu mai există. Deși în extinderea apelărilor din libcrypto apăreau inițial cele către sha256_init(), sha256_update() și sha256_final(), acum este vizibilă și folosirea intensă a funcției sha256_transform(), apelată indirect prin sha256_final().
+
+![Profilare Call Tree](new_call_tree.png)
+
+Pe lângă asta, se poate observa, pe o rulare de 4 threaduri, gradul de încărcare a fiecărui procesor participant.
+
+![Profilare Timeline](new_timeline.png)
+
+## Rezultate fără libcrypto
+
+### Rezultate pentru rularea Pthreads în varianta actualizată pe ibm-dp.q
+
+![Pthreads fără libcrypto](ibm_dp_pth.png)
+
+### Speed-up pentru rularea Pthreads în varianta actualizată pe ibm-dp.q
+
+![Speedup Pthreads fără libcrypto](speed_up_ibm_dp_pth.png)
