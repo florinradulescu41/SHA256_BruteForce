@@ -1,8 +1,5 @@
 /*************************** HEADER FILES ***************************/
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <omp.h>
 #include <memory.h>
 #include "sha256.h"
 
@@ -17,11 +14,6 @@
 #define SIG0(x) (ROTRIGHT(x,7) ^ ROTRIGHT(x,18) ^ ((x) >> 3))
 #define SIG1(x) (ROTRIGHT(x,17) ^ ROTRIGHT(x,19) ^ ((x) >> 10))
 
-#define PASSLEN 5
-#define NR_PROC 4
-#define SHA_STRING_LEN 64
-#define SHA256_DIGEST_LENGTH 32
-
 /**************************** VARIABLES *****************************/
 static const WORD k[64] = {
 	0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
@@ -33,7 +25,6 @@ static const WORD k[64] = {
 	0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
 	0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
 };
-
 
 /*********************** FUNCTION DEFINITIONS ***********************/
 void sha256_transform(SHA256_CTX *ctx, const BYTE data[])
@@ -150,113 +141,4 @@ void sha256_final(SHA256_CTX *ctx, BYTE hash[])
 		hash[i + 24] = (ctx->state[6] >> (24 - i * 8)) & 0x000000ff;
 		hash[i + 28] = (ctx->state[7] >> (24 - i * 8)) & 0x000000ff;
 	}
-}
-
-typedef unsigned char byte;
-
-int matches(byte *a, byte* b) {
-	for (int i = 0; i < 32; i++)
-		if (a[i] != b[i])
-			return 0;
-	return 1;
-}
-
-
-byte* StringHashToByteArray(const char* s) {
-	byte* hash = (byte*) malloc(32);
-	char two[3];
-	two[2] = 0;
-	for (int i = 0; i < 32; i++) {
-		two[0] = s[i * 2];
-		two[1] = s[i * 2 + 1];
-		hash[i] = (byte)strtol(two, 0, 16);
-	}
-	return hash;
-}
-
-void printResult(byte* password, byte* hash) {
-	char sPass[PASSLEN + 1];
-	memcpy(sPass, password, PASSLEN);
-	sPass[PASSLEN] = 0;
-	printf("\nA fost decriptată parola << %s >> din cifrul SHA256 următor:\n", sPass);
-	for (int i = 0; i < SHA256_DIGEST_LENGTH; i++)
-		printf("%02x", hash[i]);
-	printf("\n");
-}
-
-int main(int argc, char **argv)
-{
-
-  FILE *fptr;
-  // fptr = fopen("dataset.txt", "r");
-  fptr = fopen("dataset_short.txt", "r");
-  if (fptr == NULL) {
-    printf("ERROR opening file dataset.txt or dataset_short.txt.\n");
-    exit(1);
-  }
-
-  char buffer[SHA_STRING_LEN + 1];
-
-  while(fscanf(fptr, "%s", buffer) != EOF) {
-    for (int a = 0; a < 26; a++)
-    {
-      byte password[PASSLEN] = { 97 + a };
-     	byte* str 	=   StringHashToByteArray(buffer);
-      for (password[1] = 97; password[1] < 123; password[1]++) {
-        // byte *hash = SHA256(password, 2, 0); // ->>
-
-				byte hash[SHA256_BLOCK_SIZE];
-				SHA256_CTX ctx;
-				sha256_init(&ctx);
-				sha256_update(&ctx, password, 2);
-				sha256_final(&ctx, hash);
-        if (matches(str, hash)) {
-          printResult(password, hash);
-          continue;
-        }
-        else {
-          for (password[2] = 97; password[2] < 123; password[2]++) {
-						byte hash[SHA256_BLOCK_SIZE];
-						SHA256_CTX ctx;
-						sha256_init(&ctx);
-						sha256_update(&ctx, password, 3);
-						sha256_final(&ctx, hash);
-            if (matches(str, hash)) {
-              printResult(password, hash);
-              continue;
-            }
-            else {
-              for (password[3] = 97; password[3] < 123; password[3]++) {
-								byte hash[SHA256_BLOCK_SIZE];
-								SHA256_CTX ctx;
-								sha256_init(&ctx);
-								sha256_update(&ctx, password, 4);
-								sha256_final(&ctx, hash);
-                if (matches(str, hash)) {
-                  printResult(password, hash);
-                  continue;
-                }
-                else {
-                  for (password[4] = 97; password[4] < 123; password[4]++) {
-										byte hash[SHA256_BLOCK_SIZE];
-										SHA256_CTX ctx;
-										sha256_init(&ctx);
-										sha256_update(&ctx, password, 5);
-										sha256_final(&ctx, hash);
-                    if (matches(str, hash)) {
-                      printResult(password, hash);
-                      continue;
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-   		free(str);
-    }
-  }
-  fclose(fptr);
-	return 0;
 }

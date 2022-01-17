@@ -1,0 +1,13 @@
+Team 3 - Florin Rădulescu & Andrei Gherghe - Bruteforce SHA256
+
+- Set de date ceva mai mare: 5-15s seriala
+
+- Pregătire pentru profiling data viitoare
+
+- Pagina + descriere proiect pe gitlab
+
+- Profiling pe cluster + documentare pe gitlab
+
+- Identificarea timpului / call-ului de libcrypto
+
+- OpenMP / Pthreads

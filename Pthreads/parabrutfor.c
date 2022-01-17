@@ -3,8 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <omp.h>
+// #include <openssl/sha.h>
 #include <memory.h>
 #include "sha256.h"
+#include <pthread.h>
 
 /****************************** MACROS ******************************/
 #define ROTLEFT(a,b) (((a) << (b)) | ((a) >> (32-(b))))
@@ -18,8 +20,9 @@
 #define SIG1(x) (ROTRIGHT(x,17) ^ ROTRIGHT(x,19) ^ ((x) >> 10))
 
 #define PASSLEN 5
-#define NR_PROC 4
+#define NR_PROC 8
 #define SHA_STRING_LEN 64
+#define ALPHABET_SIZE 26
 #define SHA256_DIGEST_LENGTH 32
 
 /**************************** VARIABLES *****************************/
@@ -33,6 +36,14 @@ static const WORD k[64] = {
 	0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
 	0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
 };
+
+int P;
+pthread_barrier_t barrier;
+pthread_mutex_t lock;
+
+FILE *fptr;
+
+typedef unsigned char byte;
 
 
 /*********************** FUNCTION DEFINITIONS ***********************/
@@ -152,8 +163,6 @@ void sha256_final(SHA256_CTX *ctx, BYTE hash[])
 	}
 }
 
-typedef unsigned char byte;
-
 int matches(byte *a, byte* b) {
 	for (int i = 0; i < 32; i++)
 		if (a[i] != b[i])
@@ -184,79 +193,131 @@ void printResult(byte* password, byte* hash) {
 	printf("\n");
 }
 
-int main(int argc, char **argv)
-{
+void *thread_function(void *arg) {
 
-  FILE *fptr;
-  // fptr = fopen("dataset.txt", "r");
-  fptr = fopen("dataset_short.txt", "r");
-  if (fptr == NULL) {
-    printf("ERROR opening file dataset.txt or dataset_short.txt.\n");
-    exit(1);
-  }
+	int thread_id = *(int *)arg;
 
-  char buffer[SHA_STRING_LEN + 1];
+	// double arr = (double) ALPHABET_SIZE / P;
+	// int last = ((thread_id + 1) * arr);
+	//
+	// int start = thread_id * arr;
+	// int end = (ALPHABET_SIZE < last ? ALPHABET_SIZE : last);
 
-  while(fscanf(fptr, "%s", buffer) != EOF) {
-    for (int a = 0; a < 26; a++)
-    {
-      byte password[PASSLEN] = { 97 + a };
-     	byte* str 	=   StringHashToByteArray(buffer);
-      for (password[1] = 97; password[1] < 123; password[1]++) {
-        // byte *hash = SHA256(password, 2, 0); // ->>
+	char buffer[SHA_STRING_LEN + 1];
 
-				byte hash[SHA256_BLOCK_SIZE];
-				SHA256_CTX ctx;
-				sha256_init(&ctx);
-				sha256_update(&ctx, password, 2);
-				sha256_final(&ctx, hash);
-        if (matches(str, hash)) {
-          printResult(password, hash);
-          continue;
-        }
-        else {
-          for (password[2] = 97; password[2] < 123; password[2]++) {
+	while(1){
+		pthread_mutex_lock(&lock);
+		if (fscanf(fptr, "%s", buffer) != EOF) {
+				printf("Am citit %s în thread %d\n", buffer, thread_id);
+				pthread_mutex_unlock(&lock);
+				for (int a = 0; a < ALPHABET_SIZE; a++)
+				{
+					byte password[PASSLEN] = { 97 + a };
+					byte* str = StringHashToByteArray(buffer);
+
+					byte md[1000] = {0};
+
+					for (password[1] = 97; password[1] < 123; password[1]++) {
 						byte hash[SHA256_BLOCK_SIZE];
 						SHA256_CTX ctx;
 						sha256_init(&ctx);
-						sha256_update(&ctx, password, 3);
+						sha256_update(&ctx, password, 2);
 						sha256_final(&ctx, hash);
-            if (matches(str, hash)) {
-              printResult(password, hash);
-              continue;
-            }
-            else {
-              for (password[3] = 97; password[3] < 123; password[3]++) {
+						if (matches(str, hash)) {
+							printResult(password, hash);
+							continue;
+						}
+						else {
+							for (password[2] = 97; password[2] < 123; password[2]++) {
 								byte hash[SHA256_BLOCK_SIZE];
 								SHA256_CTX ctx;
 								sha256_init(&ctx);
-								sha256_update(&ctx, password, 4);
+								sha256_update(&ctx, password, 3);
 								sha256_final(&ctx, hash);
-                if (matches(str, hash)) {
-                  printResult(password, hash);
-                  continue;
-                }
-                else {
-                  for (password[4] = 97; password[4] < 123; password[4]++) {
+								if (matches(str, hash)) {
+									printResult(password, hash);
+									continue;
+								}
+								else {
+									for (password[3] = 97; password[3] < 123; password[3]++) {
 										byte hash[SHA256_BLOCK_SIZE];
 										SHA256_CTX ctx;
 										sha256_init(&ctx);
-										sha256_update(&ctx, password, 5);
+										sha256_update(&ctx, password, 4);
 										sha256_final(&ctx, hash);
-                    if (matches(str, hash)) {
-                      printResult(password, hash);
-                      continue;
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-   		free(str);
-    }
+										if (matches(str, hash)) {
+											printResult(password, hash);
+											continue;
+										}
+										else {
+											for (password[4] = 97; password[4] < 123; password[4]++) {
+											byte hash[SHA256_BLOCK_SIZE];
+											SHA256_CTX ctx;
+											sha256_init(&ctx);
+											sha256_update(&ctx, password, 5);
+											sha256_final(&ctx, hash);
+												if (matches(str, hash)) {
+													printResult(password, hash);
+													continue;
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+					free(str);
+				}
+		}
+		else {
+			pthread_mutex_unlock(&lock);
+			pthread_exit(NULL);
+		}
+	}
+	pthread_exit(NULL);
+}
+
+int main(int argc, char **argv)
+{
+
+  // Select the line for what file to read
+  // dataset.txt -> 25s on local / 100s on fep
+  // dataset_short.txt -> 5s on local / 25s on fep
+
+  fptr = fopen("dataset.txt", "r");
+	// fptr = fopen("dataset_short.txt", "r");
+
+  if (fptr == NULL) {
+    printf("ERROR opening file dataset.txt or dataset_short.txt\n");
+    exit(1);
   }
-  fclose(fptr);
+
+	if (pthread_mutex_init(&lock, NULL) != 0) {
+    printf("\n mutex init has failed\n");
+    return 1;
+  }
+
+  // char buffer[SHA_STRING_LEN + 1];
+
+	int thread_id[NR_PROC];
+	pthread_t tid[NR_PROC];
+	P = NR_PROC;
+
+	pthread_barrier_init(&barrier, NULL, P);
+
+	for (int i = 0; i < P; i++) {
+		thread_id[i] = i;
+		pthread_create(&tid[i], NULL, thread_function, &thread_id[i]);
+	}
+
+	for (int i = 0; i < P; i++) {
+		pthread_join(tid[i], NULL);
+	}
+
+	fclose(fptr);
+	pthread_mutex_destroy(&lock);
+
+
 	return 0;
 }
